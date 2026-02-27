@@ -957,6 +957,7 @@ const DAY_SHORT = { ראשון:'א׳', שני:'ב׳', שלישי:'ג׳', רבי�
 
 const SYNC_URL = 'https://shift-board-sync.nirhemofitness.workers.dev/data';
 let syncInProgress = false;
+let localVersion = 0;
 
 let data = loadData();
 let editIndex = -1;
@@ -968,12 +969,17 @@ const MAX_MORNING = 3;
 const MAX_EVENING = 4;
 
 function saveData() {
-    try { localStorage.setItem('shiftData', JSON.stringify(data)); } catch(e) {}
+    localVersion = Date.now();
+    try {
+        localStorage.setItem('shiftData', JSON.stringify(data));
+        localStorage.setItem('shiftVersion', String(localVersion));
+    } catch(e) {}
     syncToCloud();
 }
 
 function loadData() {
     try {
+        localVersion = parseInt(localStorage.getItem('shiftVersion')) || 0;
         const saved = localStorage.getItem('shiftData');
         return saved ? JSON.parse(saved) : [];
     } catch(e) { return []; }
@@ -983,12 +989,18 @@ async function syncToCloud() {
     if (syncInProgress) return;
     syncInProgress = true;
     try {
+        const badge = document.getElementById('syncBadge');
+        if (badge) { badge.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">cloud_upload</span> מסנכרן...'; }
         await fetch(SYNC_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify({ data, version: localVersion })
         });
-    } catch(e) {}
+        if (badge) { badge.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">cloud_done</span> מסונכרן'; }
+    } catch(e) {
+        const badge = document.getElementById('syncBadge');
+        if (badge) { badge.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">cloud_off</span> לא מחובר'; }
+    }
     syncInProgress = false;
 }
 
@@ -996,24 +1008,31 @@ async function loadFromCloud() {
     try {
         const res = await fetch(SYNC_URL);
         if (!res.ok) return;
-        const cloudData = await res.json();
-        if (Array.isArray(cloudData) && cloudData.length > 0) {
+        const cloud = await res.json();
+        const cloudVersion = cloud.version || 0;
+        const cloudData = Array.isArray(cloud.data) ? cloud.data : [];
+
+        if (cloudVersion > localVersion) {
             const localStr = JSON.stringify(data);
             const cloudStr = JSON.stringify(cloudData);
             if (localStr !== cloudStr) {
                 data = cloudData;
-                try { localStorage.setItem('shiftData', JSON.stringify(data)); } catch(e) {}
+                localVersion = cloudVersion;
+                try {
+                    localStorage.setItem('shiftData', JSON.stringify(data));
+                    localStorage.setItem('shiftVersion', String(localVersion));
+                } catch(e) {}
                 renderTable();
                 renderEmployees();
                 showToast('נתונים סונכרנו מהענן', 'info');
             }
-        } else if (data.length > 0) {
+        } else if (cloudVersion < localVersion) {
             syncToCloud();
         }
     } catch(e) {}
 }
 
-setInterval(loadFromCloud, 10000);
+setInterval(loadFromCloud, 5000);
 
 function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
