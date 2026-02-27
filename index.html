@@ -906,6 +906,10 @@
         </div>
         <div id="empList"></div>
     </div>
+
+    <div style="text-align:center; color:var(--slate-400); font-size:0.8rem; font-weight:500; margin-top:20px; padding-bottom:8px;">
+        הערות: בוקר מקס׳ 3 עובדים · ערב מקס׳ 4 עובדים
+    </div>
 </div>
 
 <!-- Confirm Dialog -->
@@ -1226,37 +1230,73 @@ function rebuildAndRender() {
 }
 
 function exportPDF() {
-    const tableEl = document.querySelector('.table-container');
+    const { morning, evening } = buildSchedule();
+
     const wrapper = document.createElement('div');
-    wrapper.style.direction = 'rtl';
-    wrapper.style.fontFamily = 'Heebo, sans-serif';
-    wrapper.style.padding = '20px';
+    wrapper.style.cssText = 'direction:rtl; padding:24px; font-family:Heebo,Arial,sans-serif; background:#fff;';
 
-    const title = document.createElement('h2');
-    title.textContent = 'לוח משמרות שבועי';
-    title.style.textAlign = 'center';
-    title.style.marginBottom = '16px';
-    title.style.fontSize = '1.5rem';
-    title.style.color = '#1e293b';
-    wrapper.appendChild(title);
+    wrapper.innerHTML = `
+        <h2 style="text-align:center; margin-bottom:20px; font-size:1.6rem; font-weight:900; color:#1e293b; letter-spacing:1px;">
+            לוח משמרות שבועי
+        </h2>
+        <table style="width:100%; border-collapse:collapse; border:2px solid #1e293b; direction:rtl;">
+            <thead>
+                <tr>
+                    <th style="background:#1e293b; color:#fff; padding:12px 10px; font-size:0.9rem; font-weight:700; text-align:right; border:1px solid #334155; width:80px;"></th>
+                    ${DAYS.map(d => `<th style="background:#1e293b; color:#fff; padding:12px 6px; font-size:0.9rem; font-weight:700; text-align:center; border:1px solid #334155;">${d}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:14px 10px; text-align:right; font-weight:800; font-size:0.95rem; color:#2563eb; background:#eff6ff; border:1px solid #d0d5e0; vertical-align:middle;">
+                        בוקר
+                    </td>
+                    ${DAYS.map(d => {
+                        const names = morning[d] || [];
+                        return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#eff6ff; border:1px solid #d0d5e0;">
+                            ${names.length ? names.map(n => `<div style="display:inline-block; background:#2563eb; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
+                        </td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td style="padding:14px 10px; text-align:right; font-weight:800; font-size:0.95rem; color:#7c3aed; background:#f5f3ff; border:1px solid #d0d5e0; vertical-align:middle;">
+                        ערב
+                    </td>
+                    ${DAYS.map(d => {
+                        const names = evening[d] || [];
+                        return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#f5f3ff; border:1px solid #d0d5e0;">
+                            ${names.length ? names.map(n => `<div style="display:inline-block; background:#7c3aed; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
+                        </td>`;
+                    }).join('')}
+                </tr>
+            </tbody>
+        </table>
+        <div style="display:flex; justify-content:center; gap:24px; margin-top:14px; font-size:0.8rem; color:#64748b; font-weight:600;">
+            <span>⬤ <span style="color:#2563eb;">בוקר</span> 10:00–16:00</span>
+            <span>⬤ <span style="color:#7c3aed;">ערב</span> 16:00–22:00</span>
+        </div>
+        <div style="text-align:center; color:#94a3b8; font-size:0.78rem; font-weight:500; margin-top:10px;">
+            הערות: בוקר מקס׳ ${MAX_MORNING} עובדים · ערב מקס׳ ${MAX_EVENING} עובדים
+        </div>
+    `;
 
-    const tableClone = tableEl.cloneNode(true);
-    tableClone.style.overflow = 'visible';
-    tableClone.style.border = '1px solid #cbd5e1';
-    tableClone.style.borderRadius = '8px';
-    wrapper.appendChild(tableClone);
+    document.body.appendChild(wrapper);
 
     const opt = {
         margin: 10,
         filename: 'shift-schedule.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
     showToast('מייצא PDF...', 'info');
     html2pdf().set(opt).from(wrapper).save().then(() => {
+        document.body.removeChild(wrapper);
         showToast('PDF יוצא בהצלחה!', 'success');
+    }).catch(() => {
+        document.body.removeChild(wrapper);
+        showToast('שגיאה בייצוא', 'error');
     });
 }
 
