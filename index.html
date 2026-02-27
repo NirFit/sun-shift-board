@@ -1014,7 +1014,7 @@
     </div>
 
     <div style="text-align:center; color:var(--slate-400); font-size:0.8rem; font-weight:500; margin-top:20px; padding-bottom:8px;">
-        הערות: בוקר מקס׳ 3 עובדים · ערב מקס׳ 4 עובדים · שישי משמרת בוקר בלבד · שבת סגור
+        הערות: בוקר מקס׳ 3 · ערב מקס׳ 4 · שבת בוקר סגור (✕) · שבת ערב מקס׳ 3 · שישי בוקר בלבד
     </div>
 </div>
 
@@ -1248,8 +1248,8 @@ function renderTable() {
         </div></td>`;
 
     DAYS.forEach((d, dayIdx) => {
-        if (d === 'שבת') {
-            html += '<td><span class="closed-cell">סגור</span></td>';
+        if (d === SATURDAY) {
+            html += '<td><span class="closed-cell" title="הסניף סגור">✕</span></td>';
         } else {
             const n = morning[d] || [];
             html += n.length
@@ -1264,8 +1264,8 @@ function renderTable() {
         </div></td>`;
 
     DAYS.forEach((d, dayIdx) => {
-        if (d === 'שישי' || d === 'שבת') {
-            html += '<td><span class="closed-cell">סגור</span></td>';
+        if (d === 'שישי') {
+            html += '<td><span class="closed-cell" title="סגור">✕</span></td>';
         } else {
             const n = evening[d] || [];
             html += n.length
@@ -1360,11 +1360,12 @@ function buildForm() {
     const grid = document.getElementById('daysGrid');
     let html = '';
     DAYS.forEach(d => {
-        if (d === 'שבת') {
+        if (d === SATURDAY) {
             html += `<div class="day-col">
                 <div class="day-label">${d}</div>
                 <div class="shift-btns">
-                    <span class="closed-cell" style="margin-top:6px;font-size:0.7rem;">סגור</span>
+                    <span class="closed-cell" style="margin-top:6px;font-size:0.85rem;" title="הסניף סגור">✕</span>
+                    <button class="shift-btn" id="btn-e-${d}" onclick="toggleShift('${d}','e',this)">ערב</button>
                 </div>
             </div>`;
         } else if (d === 'שישי') {
@@ -1560,7 +1561,7 @@ function exportPDF() {
                         בוקר
                     </td>
                     ${DAYS.map(d => {
-                        if (d === 'שבת') return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fee2e2; border:1px solid #d0d5e0;"><span style="color:#ef4444; font-weight:700; font-size:0.75rem;">סגור</span></td>`;
+                        if (d === SATURDAY) return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fef3c7; border:1px solid #d0d5e0;"><span style="color:#92400e; font-weight:800; font-size:1rem;">✕</span></td>`;
                         const names = morning[d] || [];
                         return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#eff6ff; border:1px solid #d0d5e0;">
                             ${names.length ? names.map(n => `<div style="display:inline-block; background:#2563eb; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
@@ -1572,7 +1573,7 @@ function exportPDF() {
                         ערב
                     </td>
                     ${DAYS.map(d => {
-                        if (d === 'שישי' || d === 'שבת') return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fee2e2; border:1px solid #d0d5e0;"><span style="color:#ef4444; font-weight:700; font-size:0.75rem;">סגור</span></td>`;
+                        if (d === 'שישי') return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fef3c7; border:1px solid #d0d5e0;"><span style="color:#92400e; font-weight:800; font-size:1rem;">✕</span></td>`;
                         const names = evening[d] || [];
                         return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#f5f3ff; border:1px solid #d0d5e0;">
                             ${names.length ? names.map(n => `<div style="display:inline-block; background:#7c3aed; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
@@ -1583,7 +1584,7 @@ function exportPDF() {
         </table>
         <div style="margin-top:14px; font-size:0.78rem; color:#64748b; font-weight:600; text-align:center;">
             <div>ראשון–חמישי: בוקר 10:00–16:00 · ערב 16:00–22:30</div>
-            <div>שישי: בוקר 10:00–15:00 · שבת: סגור</div>
+            <div>שישי: בוקר בלבד · שבת בוקר סגור (✕) · שבת ערב מקס׳ 3</div>
         </div>
     `;
 
