@@ -580,6 +580,10 @@
         .emp-shift-tag.e {
             background: linear-gradient(135deg, var(--purple) 0%, #a855f7 100%);
         }
+        .emp-shift-tag.overflow {
+            background: linear-gradient(135deg, #f59e0b 0%, #eab308 100%);
+            color: #78350f;
+        }
 
         .emp-actions { display: flex; gap: 6px; margin-right: auto; }
 
@@ -962,8 +966,10 @@ function shuffle(arr) {
     return arr;
 }
 
+let lastSchedule = null;
+
 function buildSchedule() {
-    const morning = {}, evening = {};
+    const morning = {}, evening = {}, overflow = {};
     DAYS.forEach(d => {
         const onlyM = [], onlyE = [], both = [];
         data.forEach(p => {
@@ -974,21 +980,33 @@ function buildSchedule() {
             else if (hasE) onlyE.push(p.name);
         });
 
-        morning[d] = [...onlyM];
-        evening[d] = [...onlyE];
+        morning[d] = [];
+        evening[d] = [];
+        overflow[d] = [];
+
+        onlyM.forEach(name => {
+            if (morning[d].length < MAX_MORNING) morning[d].push(name);
+            else overflow[d].push({ name, shift: 'm' });
+        });
+
+        onlyE.forEach(name => {
+            if (evening[d].length < MAX_EVENING) evening[d].push(name);
+            else overflow[d].push({ name, shift: 'e' });
+        });
 
         shuffle(both);
         both.forEach(name => {
             const mFull = morning[d].length >= MAX_MORNING;
             const eFull = evening[d].length >= MAX_EVENING;
-            if (mFull && eFull) return;
+            if (mFull && eFull) { overflow[d].push({ name, shift: 'both' }); return; }
             if (mFull) { evening[d].push(name); return; }
             if (eFull) { morning[d].push(name); return; }
             if (Math.random() < 0.5) morning[d].push(name);
             else evening[d].push(name);
         });
     });
-    return { morning, evening };
+    lastSchedule = { morning, evening, overflow };
+    return lastSchedule;
 }
 
 function renderTable() {
@@ -1039,6 +1057,17 @@ function renderEmployees() {
         return;
     }
 
+    const overflowByName = {};
+    if (lastSchedule && lastSchedule.overflow) {
+        DAYS.forEach(d => {
+            (lastSchedule.overflow[d] || []).forEach(item => {
+                if (!overflowByName[item.name]) overflowByName[item.name] = [];
+                const label = item.shift === 'both' ? 'בוקר/ערב' : (item.shift === 'm' ? 'בוקר' : 'ערב');
+                overflowByName[item.name].push({ day: DAY_SHORT[d], label });
+            });
+        });
+    }
+
     let html = '<div class="emp-list">';
     data.forEach((p, i) => {
         let mCount = 0, eCount = 0;
@@ -1047,6 +1076,11 @@ function renderEmployees() {
             if (p.m[d] === 1) { mCount++; tags.push(`<span class="emp-shift-tag m">${DAY_SHORT[d]} בוקר</span>`); }
             if (p.e[d] === 1) { eCount++; tags.push(`<span class="emp-shift-tag e">${DAY_SHORT[d]} ערב</span>`); }
         });
+
+        const overflowTags = (overflowByName[p.name] || []).map(
+            o => `<span class="emp-shift-tag overflow">${o.day} ${o.label} (מלא)</span>`
+        ).join('');
+
         const total = mCount + eCount;
         const initial = p.name.charAt(0);
 
@@ -1059,7 +1093,7 @@ function renderEmployees() {
                     <span>${mCount} בוקר · ${eCount} ערב</span>
                 </div>
             </div>
-            <div class="emp-shifts">${tags.join('')}</div>
+            <div class="emp-shifts">${tags.join('')}${overflowTags}</div>
             <div class="emp-actions">
                 <button class="btn-icon btn-edit" onclick="editEmployee(${i})" title="עריכה">
                     <span class="material-symbols-rounded">edit</span>
