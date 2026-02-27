@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>לוח משמרות</title>
+    <title>לוח משמרות בורגראנץ׳</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
@@ -925,7 +925,7 @@
         <div class="header-icon">
             <span class="material-symbols-rounded">calendar_month</span>
         </div>
-        <h1>לוח משמרות</h1>
+        <h1>לוח משמרות בורגראנץ׳</h1>
         <div class="header-sub">ניהול וחלוקת משמרות שבועית</div>
         <div class="sync-badge" id="syncBadge">
             <span class="material-symbols-rounded" style="font-size:14px">cloud_done</span>
@@ -977,7 +977,8 @@
             <div class="hours-row">
                 <span class="hours-days">שבת</span>
                 <span class="hours-times">
-                    <span class="hours-tag closed">סניף סגור</span>
+                    <span class="hours-tag closed">בוקר – סגור</span>
+                    <span class="hours-tag evening">ערב 18:30–22:00</span>
                 </span>
             </div>
         </div>
@@ -1043,7 +1044,7 @@
     </div>
 
     <div style="text-align:center; color:var(--slate-400); font-size:0.8rem; font-weight:500; margin-top:20px; padding-bottom:8px;">
-        הערות: בוקר מקס׳ 3 · ערב מקס׳ 4 · שבת בוקר סגור (✕) · שבת ערב מקס׳ 3 · שישי בוקר בלבד
+        הערות: בוקר מקס׳ 3 · ערב מקס׳ 4 · שבת בוקר סגור (✕) · שבת ערב 18:30–22:00 מקס׳ 3 · שישי בוקר בלבד
     </div>
     <div id="coverageNotices" class="coverage-notices" style="display:none;"></div>
 </div>
@@ -1256,7 +1257,15 @@ function buildSchedule() {
                 countE[name] = (countE[name] || 0) + 1;
                 return;
             }
-            if (countM[name] <= countE[name]) {
+            const needM = maxM - morning[d].length;
+            const needE = maxE - evening[d].length;
+            if (needE > needM) {
+                evening[d].push(name);
+                countE[name] = (countE[name] || 0) + 1;
+            } else if (needM > needE) {
+                morning[d].push(name);
+                countM[name] = (countM[name] || 0) + 1;
+            } else if (countM[name] <= countE[name]) {
                 morning[d].push(name);
                 countM[name] = (countM[name] || 0) + 1;
             } else {
@@ -1666,7 +1675,7 @@ function exportPDF() {
 
     wrapper.innerHTML = `
         <h2 style="text-align:center; margin-bottom:20px; font-size:1.6rem; font-weight:900; color:#1e293b; letter-spacing:1px;">
-            לוח משמרות שבועי
+            לוח משמרות בורגראנץ׳
         </h2>
         <table style="width:100%; border-collapse:collapse; border:2px solid #1e293b; direction:rtl;">
             <thead>
@@ -1704,7 +1713,7 @@ function exportPDF() {
         </table>
         <div style="margin-top:14px; font-size:0.78rem; color:#64748b; font-weight:600; text-align:center;">
             <div>ראשון–חמישי: בוקר 10:00–16:00 · ערב 16:00–22:30</div>
-            <div>שישי: בוקר בלבד · שבת בוקר סגור (✕) · שבת ערב מקס׳ 3</div>
+            <div>שישי: בוקר בלבד · שבת בוקר סגור (✕) · שבת ערב 18:30–22:00</div>
         </div>
     `;
 
