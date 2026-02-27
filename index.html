@@ -1131,6 +1131,8 @@ function shuffle(arr) {
 }
 
 const RONI_FIRST = ['רוני', 'ים'];
+const RONI_YAM_PAIR = ['רוני', 'ים'];
+
 function roniBeforeYam(names) {
     return [...names].sort((a, b) => {
         const i = RONI_FIRST.indexOf(a);
@@ -1142,12 +1144,22 @@ function roniBeforeYam(names) {
     });
 }
 
+/** רוני וים לא באותו משמרת – בודק אם הוספת name ל-slotArr תשים אותם ביחד */
+function wouldRoniYamTogether(name, slotArr) {
+    if (!slotArr || !slotArr.length) return false;
+    if (!RONI_YAM_PAIR.includes(name)) return false;
+    return slotArr.some(n => RONI_YAM_PAIR.includes(n) && n !== name);
+}
+
 let lastSchedule = null;
 let displaySchedule = null;
 let promoted = {};
 
 function buildSchedule() {
     const morning = {}, evening = {}, overflow = {};
+    const countM = {}, countE = {};
+    data.forEach(p => { countM[p.name] = 0; countE[p.name] = 0; });
+
     DAYS.forEach(d => {
         morning[d] = [];
         evening[d] = [];
@@ -1169,8 +1181,12 @@ function buildSchedule() {
 
         if (!noMorningSat) {
             roniBeforeYam(onlyM).forEach(name => {
-                if (morning[d].length < maxM) morning[d].push(name);
-                else overflow[d].push({ name, shift: 'm' });
+                if (morning[d].length < maxM && !wouldRoniYamTogether(name, morning[d])) {
+                    morning[d].push(name);
+                    countM[name] = (countM[name] || 0) + 1;
+                } else {
+                    overflow[d].push({ name, shift: 'm' });
+                }
             });
         } else {
             onlyM.forEach(name => overflow[d].push({ name, shift: 'm' }));
@@ -1178,8 +1194,12 @@ function buildSchedule() {
 
         if (maxE > 0) {
             roniBeforeYam(onlyE).forEach(name => {
-                if (evening[d].length < maxE) evening[d].push(name);
-                else overflow[d].push({ name, shift: 'e' });
+                if (evening[d].length < maxE && !wouldRoniYamTogether(name, evening[d])) {
+                    evening[d].push(name);
+                    countE[name] = (countE[name] || 0) + 1;
+                } else {
+                    overflow[d].push({ name, shift: 'e' });
+                }
             });
         } else {
             onlyE.forEach(name => overflow[d].push({ name, shift: 'e' }));
@@ -1189,11 +1209,30 @@ function buildSchedule() {
         bothOrdered.forEach(name => {
             const mFull = morning[d].length >= maxM;
             const eFull = evening[d].length >= maxE;
-            if (mFull && eFull) { overflow[d].push({ name, shift: noEvening ? 'm' : 'both' }); return; }
-            if (mFull) { evening[d].push(name); return; }
-            if (eFull) { morning[d].push(name); return; }
-            if (Math.random() < 0.5) morning[d].push(name);
-            else evening[d].push(name);
+            const canM = !mFull && !wouldRoniYamTogether(name, morning[d]);
+            const canE = !eFull && !wouldRoniYamTogether(name, evening[d]);
+
+            if (!canM && !canE) {
+                overflow[d].push({ name, shift: noEvening ? 'm' : 'both' });
+                return;
+            }
+            if (canM && !canE) {
+                morning[d].push(name);
+                countM[name] = (countM[name] || 0) + 1;
+                return;
+            }
+            if (!canM && canE) {
+                evening[d].push(name);
+                countE[name] = (countE[name] || 0) + 1;
+                return;
+            }
+            if (countM[name] <= countE[name]) {
+                morning[d].push(name);
+                countM[name] = (countM[name] || 0) + 1;
+            } else {
+                evening[d].push(name);
+                countE[name] = (countE[name] || 0) + 1;
+            }
         });
     });
     lastSchedule = { morning, evening, overflow };
