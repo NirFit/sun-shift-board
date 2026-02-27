@@ -227,7 +227,9 @@
         .names-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 
         .name-tag {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 0.75rem;
@@ -244,12 +246,79 @@
             background: linear-gradient(135deg, var(--purple) 0%, #a855f7 100%);
             box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
         }
+        .slot-remove {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.2);
+            color: #fff;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .slot-remove:hover {
+            background: rgba(0,0,0,0.4);
+        }
 
         .empty-cell {
             color: var(--slate-300);
             font-size: 0.75rem;
             font-weight: 500;
         }
+
+        .closed-cell {
+            color: var(--red);
+            font-size: 0.72rem;
+            font-weight: 700;
+            background: var(--red-light);
+            padding: 3px 10px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .hours-info {
+            margin-top: 16px;
+            padding: 16px 20px;
+            border-radius: var(--radius-sm);
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+        }
+        .hours-info-title {
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: var(--slate-700);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .hours-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--slate-100);
+        }
+        .hours-row:last-child { border-bottom: none; }
+        .hours-days { color: var(--slate-600); }
+        .hours-times { display: flex; gap: 12px; color: var(--slate-500); }
+        .hours-tag {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .hours-tag.morning { background: var(--blue-light); color: var(--blue-dark); }
+        .hours-tag.evening { background: var(--purple-light); color: var(--purple-dark); }
+        .hours-tag.closed { background: var(--red-light); color: var(--red); }
 
         /* ── Legend ── */
         .legend {
@@ -857,14 +926,30 @@
             </table>
         </div>
 
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-dot morning"></div>
-                בוקר (10:00–16:00)
+        <div class="hours-info">
+            <div class="hours-info-title">
+                <span class="material-symbols-rounded" style="font-size:18px">schedule</span>
+                שעות פתיחת הסניף
             </div>
-            <div class="legend-item">
-                <div class="legend-dot evening"></div>
-                ערב (16:00–22:00)
+            <div class="hours-row">
+                <span class="hours-days">ראשון – חמישי</span>
+                <span class="hours-times">
+                    <span class="hours-tag morning">בוקר 10:00–16:00</span>
+                    <span class="hours-tag evening">ערב 16:00–22:30</span>
+                </span>
+            </div>
+            <div class="hours-row">
+                <span class="hours-days">שישי</span>
+                <span class="hours-times">
+                    <span class="hours-tag morning">בוקר 10:00–15:00</span>
+                    <span class="hours-tag closed">ערב – סגור</span>
+                </span>
+            </div>
+            <div class="hours-row">
+                <span class="hours-days">שבת</span>
+                <span class="hours-times">
+                    <span class="hours-tag closed">סניף סגור</span>
+                </span>
             </div>
         </div>
 
@@ -929,7 +1014,7 @@
     </div>
 
     <div style="text-align:center; color:var(--slate-400); font-size:0.8rem; font-weight:500; margin-top:20px; padding-bottom:8px;">
-        הערות: בוקר מקס׳ 3 עובדים · ערב מקס׳ 4 עובדים
+        הערות: בוקר מקס׳ 3 עובדים · ערב מקס׳ 4 עובדים · שישי משמרת בוקר בלבד · שבת סגור
     </div>
 </div>
 
@@ -967,6 +1052,8 @@ DAYS.forEach(d => formState[d] = { m: false, e: false });
 
 const MAX_MORNING = 3;
 const MAX_EVENING = 4;
+const MAX_EVENING_SATURDAY = 3;
+const SATURDAY = 'שבת';
 
 function saveData() {
     localVersion = Date.now();
@@ -1022,6 +1109,7 @@ async function loadFromCloud() {
                     localStorage.setItem('shiftData', JSON.stringify(data));
                     localStorage.setItem('shiftVersion', String(localVersion));
                 } catch(e) {}
+                displaySchedule = null;
                 renderTable();
                 renderEmployees();
                 showToast('נתונים סונכרנו מהענן', 'info');
@@ -1042,39 +1130,66 @@ function shuffle(arr) {
     return arr;
 }
 
+const RONI_FIRST = ['רוני', 'ים'];
+function roniBeforeYam(names) {
+    return [...names].sort((a, b) => {
+        const i = RONI_FIRST.indexOf(a);
+        const j = RONI_FIRST.indexOf(b);
+        if (i === -1 && j === -1) return 0;
+        if (i === -1) return 1;
+        if (j === -1) return -1;
+        return i - j;
+    });
+}
+
 let lastSchedule = null;
+let displaySchedule = null;
+let promoted = {};
 
 function buildSchedule() {
     const morning = {}, evening = {}, overflow = {};
     DAYS.forEach(d => {
+        morning[d] = [];
+        evening[d] = [];
+        overflow[d] = [];
+
+        const noMorningSat = (d === SATURDAY);
+        const noEvening = (d === 'שישי');
+        const maxM = noMorningSat ? 0 : MAX_MORNING;
+        const maxE = (d === SATURDAY) ? MAX_EVENING_SATURDAY : (noEvening ? 0 : MAX_EVENING);
+
         const onlyM = [], onlyE = [], both = [];
         data.forEach(p => {
-            const hasM = p.m[d] === 1;
-            const hasE = p.e[d] === 1;
+            const hasM = !noMorningSat && p.m[d] === 1;
+            const hasE = !noEvening && p.e[d] === 1;
             if (hasM && hasE) both.push(p.name);
             else if (hasM) onlyM.push(p.name);
             else if (hasE) onlyE.push(p.name);
         });
 
-        morning[d] = [];
-        evening[d] = [];
-        overflow[d] = [];
+        if (!noMorningSat) {
+            roniBeforeYam(onlyM).forEach(name => {
+                if (morning[d].length < maxM) morning[d].push(name);
+                else overflow[d].push({ name, shift: 'm' });
+            });
+        } else {
+            onlyM.forEach(name => overflow[d].push({ name, shift: 'm' }));
+        }
 
-        onlyM.forEach(name => {
-            if (morning[d].length < MAX_MORNING) morning[d].push(name);
-            else overflow[d].push({ name, shift: 'm' });
-        });
+        if (maxE > 0) {
+            roniBeforeYam(onlyE).forEach(name => {
+                if (evening[d].length < maxE) evening[d].push(name);
+                else overflow[d].push({ name, shift: 'e' });
+            });
+        } else {
+            onlyE.forEach(name => overflow[d].push({ name, shift: 'e' }));
+        }
 
-        onlyE.forEach(name => {
-            if (evening[d].length < MAX_EVENING) evening[d].push(name);
-            else overflow[d].push({ name, shift: 'e' });
-        });
-
-        shuffle(both);
-        both.forEach(name => {
-            const mFull = morning[d].length >= MAX_MORNING;
-            const eFull = evening[d].length >= MAX_EVENING;
-            if (mFull && eFull) { overflow[d].push({ name, shift: 'both' }); return; }
+        const bothOrdered = roniBeforeYam(shuffle([...both]));
+        bothOrdered.forEach(name => {
+            const mFull = morning[d].length >= maxM;
+            const eFull = evening[d].length >= maxE;
+            if (mFull && eFull) { overflow[d].push({ name, shift: noEvening ? 'm' : 'both' }); return; }
             if (mFull) { evening[d].push(name); return; }
             if (eFull) { morning[d].push(name); return; }
             if (Math.random() < 0.5) morning[d].push(name);
@@ -1082,42 +1197,95 @@ function buildSchedule() {
         });
     });
     lastSchedule = { morning, evening, overflow };
+    displaySchedule = {
+        morning: DAYS.reduce((o, d) => { o[d] = [...(lastSchedule.morning[d] || [])]; return o; }, {}),
+        evening: DAYS.reduce((o, d) => { o[d] = [...(lastSchedule.evening[d] || [])]; return o; }, {})
+    };
     return lastSchedule;
+}
+
+function getDisplaySchedule() {
+    if (!displaySchedule || !lastSchedule) buildSchedule();
+    return displaySchedule;
+}
+
+function removeFromSlot(day, shift, name) {
+    const disp = getDisplaySchedule();
+    const arr = shift === 'm' ? disp.morning[day] : disp.evening[day];
+    const idx = arr.indexOf(name);
+    if (idx === -1) return;
+    arr.splice(idx, 1);
+
+    let overflowList = (lastSchedule.overflow[day] || []).filter(item =>
+        (shift === 'm' && (item.shift === 'm' || item.shift === 'both')) ||
+        (shift === 'e' && (item.shift === 'e' || item.shift === 'both'))
+    );
+    overflowList = overflowList.filter(item => !arr.includes(item.name));
+    if (overflowList.length) {
+        const first = overflowList[0].name;
+        arr.push(first);
+        promoted[`${first}-${day}-${shift}`] = true;
+    }
+    renderTable();
+    renderEmployees();
+    showToast(overflowList.length ? `${overflowList[0].name} הוכנס למשמרת` : 'הוסר מהמשמרת', 'info');
 }
 
 function renderTable() {
     const tbody = document.getElementById('body');
-    const { morning, evening } = buildSchedule();
+    const { morning, evening } = getDisplaySchedule();
+
+    const nameTag = (name, dayIdx, shift) => {
+        const cls = shift === 'm' ? 'name-tag-m' : 'name-tag-e';
+        const day = DAYS[dayIdx];
+        const safeName = (name || '').replace(/"/g, '&quot;');
+        return `<span class="name-tag ${cls}" data-day-idx="${dayIdx}" data-shift="${shift}" data-name="${safeName}">${name}<button type="button" class="slot-remove" aria-label="הסר ממשמרת">×</button></span>`;
+    };
 
     let html = `<tr class="row-morning"><td>
         <div class="shift-label">
             <span class="shift-label-title morning">בוקר</span>
-            <span class="shift-label-time">10:00–16:00</span>
-            <span class="shift-label-max">מקס׳ ${MAX_MORNING}</span>
         </div></td>`;
 
-    DAYS.forEach(d => {
-        const n = morning[d];
-        html += n.length
-            ? '<td><div class="names-cell">' + n.map(x => `<span class="name-tag name-tag-m">${x}</span>`).join('') + '</div></td>'
-            : '<td><span class="empty-cell">—</span></td>';
+    DAYS.forEach((d, dayIdx) => {
+        if (d === 'שבת') {
+            html += '<td><span class="closed-cell">סגור</span></td>';
+        } else {
+            const n = morning[d] || [];
+            html += n.length
+                ? '<td><div class="names-cell">' + n.map(x => nameTag(x, dayIdx, 'm')).join('') + '</div></td>'
+                : '<td><span class="empty-cell">—</span></td>';
+        }
     });
 
     html += `</tr><tr class="row-evening"><td>
         <div class="shift-label">
             <span class="shift-label-title evening">ערב</span>
-            <span class="shift-label-time">16:00–22:00</span>
-            <span class="shift-label-max">מקס׳ ${MAX_EVENING}</span>
         </div></td>`;
 
-    DAYS.forEach(d => {
-        const n = evening[d];
-        html += n.length
-            ? '<td><div class="names-cell">' + n.map(x => `<span class="name-tag name-tag-e">${x}</span>`).join('') + '</div></td>'
-            : '<td><span class="empty-cell">—</span></td>';
+    DAYS.forEach((d, dayIdx) => {
+        if (d === 'שישי' || d === 'שבת') {
+            html += '<td><span class="closed-cell">סגור</span></td>';
+        } else {
+            const n = evening[d] || [];
+            html += n.length
+                ? '<td><div class="names-cell">' + n.map(x => nameTag(x, dayIdx, 'e')).join('') + '</div></td>'
+                : '<td><span class="empty-cell">—</span></td>';
+        }
     });
     html += '</tr>';
     tbody.innerHTML = html;
+
+    tbody.querySelectorAll('.slot-remove').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const span = this.closest('.name-tag');
+            if (!span) return;
+            const day = DAYS[parseInt(span.dataset.dayIdx, 10)];
+            const shift = span.dataset.shift;
+            const name = (span.dataset.name || '').replace(/&quot;/g, '"');
+            removeFromSlot(day, shift, name);
+        });
+    });
 }
 
 function renderEmployees() {
@@ -1137,6 +1305,10 @@ function renderEmployees() {
     if (lastSchedule && lastSchedule.overflow) {
         DAYS.forEach(d => {
             (lastSchedule.overflow[d] || []).forEach(item => {
+                const promotedM = promoted[`${item.name}-${d}-m`];
+                const promotedE = promoted[`${item.name}-${d}-e`];
+                if (item.shift === 'both' && (promotedM || promotedE)) return;
+                if (item.shift !== 'both' && promoted[`${item.name}-${d}-${item.shift}`]) return;
                 if (!overflowByName[item.name]) overflowByName[item.name] = [];
                 const label = item.shift === 'both' ? 'בוקר/ערב' : (item.shift === 'm' ? 'בוקר' : 'ערב');
                 overflowByName[item.name].push({ day: DAY_SHORT[d], label });
@@ -1188,13 +1360,29 @@ function buildForm() {
     const grid = document.getElementById('daysGrid');
     let html = '';
     DAYS.forEach(d => {
-        html += `<div class="day-col">
-            <div class="day-label">${d}</div>
-            <div class="shift-btns">
-                <button class="shift-btn" id="btn-m-${d}" onclick="toggleShift('${d}','m',this)">בוקר</button>
-                <button class="shift-btn" id="btn-e-${d}" onclick="toggleShift('${d}','e',this)">ערב</button>
-            </div>
-        </div>`;
+        if (d === 'שבת') {
+            html += `<div class="day-col">
+                <div class="day-label">${d}</div>
+                <div class="shift-btns">
+                    <span class="closed-cell" style="margin-top:6px;font-size:0.7rem;">סגור</span>
+                </div>
+            </div>`;
+        } else if (d === 'שישי') {
+            html += `<div class="day-col">
+                <div class="day-label">${d}</div>
+                <div class="shift-btns">
+                    <button class="shift-btn" id="btn-m-${d}" onclick="toggleShift('${d}','m',this)">בוקר</button>
+                </div>
+            </div>`;
+        } else {
+            html += `<div class="day-col">
+                <div class="day-label">${d}</div>
+                <div class="shift-btns">
+                    <button class="shift-btn" id="btn-m-${d}" onclick="toggleShift('${d}','m',this)">בוקר</button>
+                    <button class="shift-btn" id="btn-e-${d}" onclick="toggleShift('${d}','e',this)">ערב</button>
+                </div>
+            </div>`;
+        }
     });
     grid.innerHTML = html;
 }
@@ -1221,8 +1409,10 @@ function resetForm() {
     document.getElementById('nameInput').value = '';
     DAYS.forEach(d => {
         formState[d] = { m: false, e: false };
-        document.getElementById('btn-m-' + d).classList.remove('active-m');
-        document.getElementById('btn-e-' + d).classList.remove('active-e');
+        const mBtn = document.getElementById('btn-m-' + d);
+        const eBtn = document.getElementById('btn-e-' + d);
+        if (mBtn) mBtn.classList.remove('active-m');
+        if (eBtn) eBtn.classList.remove('active-e');
     });
     editIndex = -1;
     document.getElementById('formTitle').innerHTML = 'הוספת עובד/ת<small>הזן שם ובחר משמרות זמינות</small>';
@@ -1241,8 +1431,10 @@ function loadToForm(p) {
     DAYS.forEach(d => {
         formState[d].m = p.m[d] === 1;
         formState[d].e = p.e[d] === 1;
-        document.getElementById('btn-m-' + d).classList.toggle('active-m', formState[d].m);
-        document.getElementById('btn-e-' + d).classList.toggle('active-e', formState[d].e);
+        const mBtn = document.getElementById('btn-m-' + d);
+        const eBtn = document.getElementById('btn-e-' + d);
+        if (mBtn) mBtn.classList.toggle('active-m', formState[d].m);
+        if (eBtn) eBtn.classList.toggle('active-e', formState[d].e);
     });
 }
 
@@ -1284,6 +1476,7 @@ function executeDelete() {
     saveData();
     if (editIndex === pendingDeleteIdx) resetForm();
     else if (editIndex > pendingDeleteIdx) editIndex--;
+    displaySchedule = null;
     renderTable();
     renderEmployees();
     closeConfirm();
@@ -1329,13 +1522,18 @@ function addEmployee() {
     }
 
     saveData();
+    displaySchedule = null;
     renderTable();
     renderEmployees();
     resetForm();
 }
 
 function rebuildAndRender() {
+    displaySchedule = null;
+    promoted = {};
+    buildSchedule();
     renderTable();
+    renderEmployees();
     showToast('המשמרות חולקו מחדש', 'info');
 }
 
@@ -1362,6 +1560,7 @@ function exportPDF() {
                         בוקר
                     </td>
                     ${DAYS.map(d => {
+                        if (d === 'שבת') return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fee2e2; border:1px solid #d0d5e0;"><span style="color:#ef4444; font-weight:700; font-size:0.75rem;">סגור</span></td>`;
                         const names = morning[d] || [];
                         return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#eff6ff; border:1px solid #d0d5e0;">
                             ${names.length ? names.map(n => `<div style="display:inline-block; background:#2563eb; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
@@ -1373,6 +1572,7 @@ function exportPDF() {
                         ערב
                     </td>
                     ${DAYS.map(d => {
+                        if (d === 'שישי' || d === 'שבת') return `<td style="padding:10px 6px; text-align:center; vertical-align:middle; background:#fee2e2; border:1px solid #d0d5e0;"><span style="color:#ef4444; font-weight:700; font-size:0.75rem;">סגור</span></td>`;
                         const names = evening[d] || [];
                         return `<td style="padding:10px 6px; text-align:center; vertical-align:top; background:#f5f3ff; border:1px solid #d0d5e0;">
                             ${names.length ? names.map(n => `<div style="display:inline-block; background:#7c3aed; color:#fff; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:700; margin:2px;">${n}</div>`).join('') : '<span style="color:#ccc;">—</span>'}
@@ -1381,12 +1581,9 @@ function exportPDF() {
                 </tr>
             </tbody>
         </table>
-        <div style="display:flex; justify-content:center; gap:24px; margin-top:14px; font-size:0.8rem; color:#64748b; font-weight:600;">
-            <span>⬤ <span style="color:#2563eb;">בוקר</span> 10:00–16:00</span>
-            <span>⬤ <span style="color:#7c3aed;">ערב</span> 16:00–22:00</span>
-        </div>
-        <div style="text-align:center; color:#94a3b8; font-size:0.78rem; font-weight:500; margin-top:10px;">
-            הערות: בוקר מקס׳ ${MAX_MORNING} עובדים · ערב מקס׳ ${MAX_EVENING} עובדים
+        <div style="margin-top:14px; font-size:0.78rem; color:#64748b; font-weight:600; text-align:center;">
+            <div>ראשון–חמישי: בוקר 10:00–16:00 · ערב 16:00–22:30</div>
+            <div>שישי: בוקר 10:00–15:00 · שבת: סגור</div>
         </div>
     `;
 
@@ -1421,6 +1618,8 @@ function executeResetAll() {
     data = [];
     saveData();
     resetForm();
+    displaySchedule = null;
+    promoted = {};
     renderTable();
     renderEmployees();
     closeConfirm();

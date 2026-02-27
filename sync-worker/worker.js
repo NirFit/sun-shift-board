@@ -24,7 +24,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/data') {
       const body = await request.text();
       const parsed = JSON.parse(body);
-      if (!parsed.version || !Array.isArray(parsed.data)) {
+      if (typeof parsed.version !== 'number' || !Array.isArray(parsed.data)) {
         return new Response(JSON.stringify({ error: 'Invalid format' }), {
           status: 400,
           headers: { ...CORS, 'Content-Type': 'application/json' },
