@@ -94,6 +94,19 @@
             margin-top: 4px;
         }
 
+        .sync-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            background: var(--green-light);
+            color: var(--green);
+        }
+
         /* ── Cards ── */
         .card {
             background: #fff;
@@ -816,6 +829,10 @@
         </div>
         <h1>לוח משמרות</h1>
         <div class="header-sub">ניהול וחלוקת משמרות שבועית</div>
+        <div class="sync-badge" id="syncBadge">
+            <span class="material-symbols-rounded" style="font-size:14px">cloud_done</span>
+            מסונכרן
+        </div>
     </div>
 
     <!-- Schedule Table -->
@@ -938,6 +955,9 @@
 const DAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAY_SHORT = { ראשון:'א׳', שני:'ב׳', שלישי:'ג׳', רביעי:'ד׳', חמישי:'ה׳', שישי:'ו׳', שבת:'ש׳' };
 
+const SYNC_URL = 'https://shift-board-sync.nirhemofitness.workers.dev/data';
+let syncInProgress = false;
+
 let data = loadData();
 let editIndex = -1;
 
@@ -949,6 +969,7 @@ const MAX_EVENING = 4;
 
 function saveData() {
     try { localStorage.setItem('shiftData', JSON.stringify(data)); } catch(e) {}
+    syncToCloud();
 }
 
 function loadData() {
@@ -957,6 +978,42 @@ function loadData() {
         return saved ? JSON.parse(saved) : [];
     } catch(e) { return []; }
 }
+
+async function syncToCloud() {
+    if (syncInProgress) return;
+    syncInProgress = true;
+    try {
+        await fetch(SYNC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch(e) {}
+    syncInProgress = false;
+}
+
+async function loadFromCloud() {
+    try {
+        const res = await fetch(SYNC_URL);
+        if (!res.ok) return;
+        const cloudData = await res.json();
+        if (Array.isArray(cloudData) && cloudData.length > 0) {
+            const localStr = JSON.stringify(data);
+            const cloudStr = JSON.stringify(cloudData);
+            if (localStr !== cloudStr) {
+                data = cloudData;
+                try { localStorage.setItem('shiftData', JSON.stringify(data)); } catch(e) {}
+                renderTable();
+                renderEmployees();
+                showToast('נתונים סונכרנו מהענן', 'info');
+            }
+        } else if (data.length > 0) {
+            syncToCloud();
+        }
+    } catch(e) {}
+}
+
+setInterval(loadFromCloud, 10000);
 
 function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1362,6 +1419,7 @@ document.getElementById('confirmOverlay').addEventListener('click', e => {
 renderTable();
 renderEmployees();
 buildForm();
+loadFromCloud();
 </script>
 </body>
 </html>

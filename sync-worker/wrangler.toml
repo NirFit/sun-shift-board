@@ -1,0 +1,7 @@
+name = "shift-board-sync"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "SHIFT_DATA"
+id = "7e06413100784951962fb6151b219865"
