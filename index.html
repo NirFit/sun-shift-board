@@ -281,6 +281,12 @@
             border-radius: 12px;
             display: inline-block;
         }
+        .closed-cell-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 48px;
+        }
 
         .hours-info {
             margin-top: 16px;
@@ -862,6 +868,29 @@
 
         .shake { animation: shake 0.4s ease; }
 
+        .coverage-notices {
+            margin-top: 12px;
+            padding: 14px 18px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1px solid #fcd34d;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #92400e;
+            text-align: right;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            flex-direction: column;
+        }
+        .coverage-notices .notice-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .coverage-notices .notice-title .material-symbols-rounded { font-size: 20px; }
+        .coverage-notices ul { margin: 4px 0 0 0; padding-right: 20px; }
+
         /* ── Responsive ── */
         @media (max-width: 700px) {
             body { padding: 12px 8px 80px; }
@@ -1016,6 +1045,7 @@
     <div style="text-align:center; color:var(--slate-400); font-size:0.8rem; font-weight:500; margin-top:20px; padding-bottom:8px;">
         הערות: בוקר מקס׳ 3 · ערב מקס׳ 4 · שבת בוקר סגור (✕) · שבת ערב מקס׳ 3 · שישי בוקר בלבד
     </div>
+    <div id="coverageNotices" class="coverage-notices" style="display:none;"></div>
 </div>
 
 <!-- Confirm Dialog -->
@@ -1248,6 +1278,54 @@ function getDisplaySchedule() {
     return displaySchedule;
 }
 
+function getCoverageNotices() {
+    if (!data.length) return { shortages: [], overflows: [] };
+    const disp = getDisplaySchedule();
+    const shortages = [];
+    const overflows = [];
+    DAYS.forEach(d => {
+        const noMorningSat = (d === SATURDAY);
+        const noEvening = (d === 'שישי');
+        const maxM = noMorningSat ? 0 : MAX_MORNING;
+        const maxE = (d === SATURDAY) ? MAX_EVENING_SATURDAY : (noEvening ? 0 : MAX_EVENING);
+        const countM = (disp.morning[d] || []).length;
+        const countE = (disp.evening[d] || []).length;
+        if (maxM > 0 && countM < maxM) {
+            const missing = maxM - countM;
+            shortages.push(missing === 1 ? `חסר לך עובד ליום ${d} בוקר` : `חסרים לך ${missing} עובדים ליום ${d} בוקר`);
+        }
+        if (maxE > 0 && countE < maxE) {
+            const missing = maxE - countE;
+            shortages.push(missing === 1 ? `חסר לך עובד ליום ${d} ערב` : `חסרים לך ${missing} עובדים ליום ${d} ערב`);
+        }
+        if (lastSchedule && lastSchedule.overflow && lastSchedule.overflow[d] && lastSchedule.overflow[d].length > 0) {
+            const n = lastSchedule.overflow[d].length;
+            overflows.push(`ביום ${d} יש ${n} עובד${n > 1 ? 'ים' : ''} במלא (ללא מקום במשמרת)`);
+        }
+    });
+    return { shortages, overflows };
+}
+
+function renderCoverageNotices() {
+    const el = document.getElementById('coverageNotices');
+    if (!el) return;
+    const { shortages, overflows } = getCoverageNotices();
+    if (shortages.length === 0 && overflows.length === 0) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+    el.style.display = 'flex';
+    let html = '<div class="notice-title"><span class="material-symbols-rounded">info</span> שים לב:</div>';
+    if (shortages.length) {
+        html += '<ul>' + shortages.map(s => '<li>' + s + '</li>').join('') + '</ul>';
+    }
+    if (overflows.length) {
+        html += '<ul>' + overflows.map(o => '<li>' + o + '</li>').join('') + '</ul>';
+    }
+    el.innerHTML = html;
+}
+
 function removeFromSlot(day, shift, name) {
     const disp = getDisplaySchedule();
     const arr = shift === 'm' ? disp.morning[day] : disp.evening[day];
@@ -1288,7 +1366,7 @@ function renderTable() {
 
     DAYS.forEach((d, dayIdx) => {
         if (d === SATURDAY) {
-            html += '<td><span class="closed-cell" title="הסניף סגור">✕</span></td>';
+            html += '<td><div class="closed-cell-wrap"><span class="closed-cell" title="הסניף סגור">✕</span></div></td>';
         } else {
             const n = morning[d] || [];
             html += n.length
@@ -1304,7 +1382,7 @@ function renderTable() {
 
     DAYS.forEach((d, dayIdx) => {
         if (d === 'שישי') {
-            html += '<td><span class="closed-cell" title="סגור">✕</span></td>';
+            html += '<td><div class="closed-cell-wrap"><span class="closed-cell" title="סגור">✕</span></div></td>';
         } else {
             const n = evening[d] || [];
             html += n.length
@@ -1325,6 +1403,7 @@ function renderTable() {
             removeFromSlot(day, shift, name);
         });
     });
+    renderCoverageNotices();
 }
 
 function renderEmployees() {
@@ -1403,7 +1482,7 @@ function buildForm() {
             html += `<div class="day-col">
                 <div class="day-label">${d}</div>
                 <div class="shift-btns">
-                    <span class="closed-cell" style="margin-top:6px;font-size:0.85rem;" title="הסניף סגור">✕</span>
+                    <div class="closed-cell-wrap" style="min-height:auto;padding:6px 0;"><span class="closed-cell" style="font-size:0.85rem;" title="הסניף סגור">✕</span></div>
                     <button class="shift-btn" id="btn-e-${d}" onclick="toggleShift('${d}','e',this)">ערב</button>
                 </div>
             </div>`;
@@ -1412,6 +1491,7 @@ function buildForm() {
                 <div class="day-label">${d}</div>
                 <div class="shift-btns">
                     <button class="shift-btn" id="btn-m-${d}" onclick="toggleShift('${d}','m',this)">בוקר</button>
+                    <div class="closed-cell-wrap" style="min-height:auto;padding:6px 0;"><span class="closed-cell" title="סגור">✕</span></div>
                 </div>
             </div>`;
         } else {
@@ -1574,6 +1654,7 @@ function rebuildAndRender() {
     buildSchedule();
     renderTable();
     renderEmployees();
+    renderCoverageNotices();
     showToast('המשמרות חולקו מחדש', 'info');
 }
 
